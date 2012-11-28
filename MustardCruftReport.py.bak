@@ -89,8 +89,9 @@ def siteGet(securePage):
     # Try accessing a page that requires you to be logged in
     accessloggystring = "\n\n\n*** NEXT CASE *** #" + str(testCounter) + "\n\nAttempting to access secure page:\n" + securePage + "\n"
     print accessloggystring
-    logging.info(accessloggystring) 
-    r = session.get(securePage) # Actually access the page
+    logging.info(accessloggystring)
+	# Actually access the page
+    r = session.get(securePage) #2.0
     siteText = r.text
     return (siteText)
     print r.status_code
