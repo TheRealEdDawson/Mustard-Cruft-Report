@@ -1,14 +1,14 @@
 #Importing required libraries
-import urllib2
 import logging
-import re
 import datetime
 import sys
 import requests
+import ast
+import string
 
 # Checking that all the arguments were entered on the command line, exiting with a message if not.
-if len(sys.argv) != 5:
-    argumentsnotset = 'One or more arguments were not passed. \nUsage is like so: \nPython MustardCruftReport.py DOCO-SITE-URL USERNAME PASSWORD MICROTEXT-FILE-PATH'
+if len(sys.argv) != 6:
+    argumentsnotset = 'One or more arguments were not passed. \nUsage is like so: \nPython MustardCruftReport.py DOCO-SITE-URL USERNAME PASSWORD MICROTEXT-GITHUB-URL NINEFOLD-SERVER-ID'
     print argumentsnotset
     sys.exit(1)	
 
@@ -16,7 +16,12 @@ if len(sys.argv) != 5:
 siteURL = sys.argv[1]
 siteUserName = sys.argv[2]
 sitePassWord = sys.argv[3]
-doco_file = sys.argv[4]
+githubPage = sys.argv[4] #deprecated
+server_id = sys.argv[5]
+
+# Overriding location of context-help file in Github and Ninefold server id
+githubPage = "https://api.github.com/repos/TheRealEdDawson/testable-microtext/contents/Testable-Microtext.txt"
+server_id = "020bcc5f-2a2b-417d-a6bc-44c61bcc0e78"
 
 # Setting up logging format to set log file AND HTML report filename, time stamping ON
 logfilename = "MustardCruftLogFile.log"
@@ -100,23 +105,35 @@ with open(htmlreportname, 'a') as f:
     f.write("<br><i>Scanning URL:<b> ")
     f.write(siteURL)
     f.write("</b> and source file:<b> ")
-    f.write(doco_file)
+    f.write(githubPage)
     f.write("</b></i><br>")
 
-# Processing Microcopy text file to retrieve microcopy content
-doco_data = open(doco_file)
-for line in doco_data:
-    doco_line = line.rstrip() # Take one line from the file
+# Accessing Github to retrieve microcopy content, and decode from base64 
+r = session.get(githubPage) # Get the context-help file information from Github
+print r.status_code #Show whether your request to Github worked
+githubDict = ast.literal_eval(r.text) # Pull the Github string into a dictionary
+stringy = githubDict['content']; # pull out just the file contents from what Github returns
+
+# Processing Microcopy to retrieve lines of content
+doco_data = stringy.decode('base64','strict') #decode the file contents from base64 & put into string
+for line in doco_data.split('\n'):
+    doco_line = line
     doco_record = doco_line.rsplit(' | ') # Split out triple value pairs into list attributes
     doco_test_URL = doco_record[0]
     doco_copycopter = doco_record[1]
     doco_microcopy = doco_record[2]
+    # Checking if the page URL contains "SERVERNAME" and replacing it with server_id if so
+    if "SERVERNAME" in doco_test_URL:
+        tempURL = doco_test_URL.replace("SERVERNAME", server_id)
+        #print "This is the assembled URL for SERVERNAME: ", tempURL
+        doco_test_URL = tempURL
+        #sys.exit(1)
     # Here, we want to assemble a URL from the base URL, appending the doco_test_URL
     securePage = siteURL + doco_test_URL
     siteText2 = siteGet(securePage) # Call the function to retrieve a new page's source
     testCounter += 1
     # Check if the microcopy text is found inside the tested site copy and return
-    precheckloggystring = "\nChecking for occurrence of: " + doco_microcopy 
+    precheckloggystring = "\nChecking for occurrence of: " + doco_microcopy + "\n\nCopycopter Code: " + doco_copycopter
     print precheckloggystring
     logging.info(precheckloggystring)
     checkResult = doco_microcopy in siteText2
@@ -131,7 +148,6 @@ for line in doco_data:
     docolist += "</p><p>Microcopy Content: "
     docolist += str(doco_microcopy)
     docolist += str(checkloggystring)
-doco_data.close()
 
 # This sends summary information to the console and seals off entries in the log file.
 print " "
